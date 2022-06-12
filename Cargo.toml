@@ -1,0 +1,11 @@
+[package]
+name = "query-benchmarker"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dotenv = "0.15.0"
+sqlx = { version = "0.5.13", features = ["postgres", "runtime-tokio-native-tls", "decimal"] }
+tokio = { version = "1.19.2", features = ["macros", "rt-multi-thread", "fs"] }
