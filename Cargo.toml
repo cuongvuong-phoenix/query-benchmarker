@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 dotenv = "0.15.0"
 sqlx = { version = "0.5.13", features = ["postgres", "runtime-tokio-native-tls", "decimal"] }
+time = "0.3.9"
 tokio = { version = "1.19.2", features = ["macros", "rt-multi-thread", "fs"] }

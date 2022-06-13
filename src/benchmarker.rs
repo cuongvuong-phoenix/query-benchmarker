@@ -13,6 +13,7 @@ impl Benchmarker {
 
     pub async fn get_plan(&self, pool: &Pool<Postgres>) -> Result<String, sqlx::Error> {
         let query = format!("EXPLAIN ANALYZE {}", self.query);
+
         sqlx::query_as::<_, (String,)>(&query)
             .fetch_all(pool)
             .await
