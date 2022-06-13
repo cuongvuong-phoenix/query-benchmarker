@@ -1,3 +1,4 @@
+use anyhow::{Error, Result};
 use sqlx::{types::Decimal, Pool, Postgres};
 
 pub struct Benchmarker {
@@ -11,7 +12,7 @@ impl Benchmarker {
         }
     }
 
-    pub async fn get_plan(&self, pool: &Pool<Postgres>) -> Result<String, sqlx::Error> {
+    pub async fn get_plan(&self, pool: &Pool<Postgres>) -> Result<String> {
         let query = format!("EXPLAIN ANALYZE {}", self.query);
 
         sqlx::query_as::<_, (String,)>(&query)
@@ -22,13 +23,15 @@ impl Benchmarker {
                     format!("{}{}\n", accum, record.0)
                 })
             })
+            .map_err(Error::msg)
     }
 
     pub async fn benchmark(
         &self,
         pool: &Pool<Postgres>,
         loop_times: Option<i32>,
-    ) -> Result<Decimal, sqlx::Error> {
+    ) -> Result<Decimal> {
+        // Defaults.
         let loop_times = if let Some(ext_loop_times) = loop_times {
             ext_loop_times
         } else {
@@ -40,5 +43,6 @@ impl Benchmarker {
             .fetch_one(pool)
             .await
             .map(|record| record.0)
+            .map_err(Error::msg)
     }
 }

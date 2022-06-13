@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use dotenv::dotenv;
 use simple_migrator::SimpleMigrator;
 use sqlx::migrate::Migrator;
@@ -5,8 +6,9 @@ use sqlx::postgres::PgPoolOptions;
 use std::borrow::Cow;
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{self};
+use std::fs;
 use std::path::Path;
+use time::{format_description, OffsetDateTime};
 
 mod benchmark_result;
 mod benchmarker;
@@ -17,8 +19,12 @@ use benchmark_result::BenchmarkResult;
 use benchmarker::Benchmarker;
 
 #[tokio::main]
-async fn main() -> Result<(), sqlx::Error> {
+async fn main() -> Result<()> {
     dotenv().ok();
+
+    let time_benchmark = OffsetDateTime::now_utc().format(&format_description::parse(
+        "[year][month][day]-[hour][minute][second]",
+    )?)?;
 
     // Database.
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set in the `.env` file");
@@ -36,10 +42,12 @@ async fn main() -> Result<(), sqlx::Error> {
     // Temp.
     let migration_names = vec![String::from("up.sql"), String::from("down.sql")];
 
+    let sql_path = Path::new("sql").canonicalize()?;
+
     // Store shared queries.
     let mut shared_query_paths = vec![];
 
-    for shared_query_entry in fs::read_dir("sql")? {
+    for shared_query_entry in fs::read_dir(&sql_path)? {
         let shared_query_path = shared_query_entry?.path();
 
         if shared_query_path.is_file() && utilities::is_sql_script(&shared_query_path) {
@@ -47,20 +55,28 @@ async fn main() -> Result<(), sqlx::Error> {
         }
     }
 
+    // Create `results` dir if not exists.
+    let results_path = Path::new("results");
+
+    if let Err(_) = fs::read_dir(&results_path) {
+        fs::create_dir(&results_path)?;
+    }
+
+    let results_path = results_path.canonicalize()?;
+
     // Read files.
     for outer_entry in fs::read_dir("sql")? {
         let outer_path = outer_entry?.path();
 
         if outer_path.is_dir() {
-            let outer_path_str = outer_path.to_string_lossy();
-
             // ----------------------------------------------------------------
             // Up runner
             // ----------------------------------------------------------------
-            let up_path = format!("{}/{}", outer_path_str, migration_names[0]);
+            let up_path = outer_path.join(&migration_names[0]);
 
             if let Ok(contents) = fs::read_to_string(&up_path) {
-                let mut migrator = SimpleMigrator::new(Cow::Owned(up_path), Cow::Owned(contents));
+                let mut migrator =
+                    SimpleMigrator::new(up_path.to_string_lossy(), Cow::Owned(contents));
 
                 migrator.run(&pool).await?;
                 migrator.report();
@@ -74,7 +90,10 @@ async fn main() -> Result<(), sqlx::Error> {
             // Collect distinct queries.
             for query_entry in fs::read_dir(&outer_path)? {
                 let query_path = query_entry?.path();
-                let query_file_name = query_path.file_name().and_then(OsStr::to_str).unwrap();
+                let query_file_name = query_path
+                    .file_name()
+                    .and_then(OsStr::to_str)
+                    .with_context(|| format!("Path \"{}\" terminated", query_path.display()))?;
 
                 if query_path.is_file()
                     && utilities::is_sql_script(&query_path)
@@ -100,9 +119,12 @@ async fn main() -> Result<(), sqlx::Error> {
                     BenchmarkResult::from_benchmarker(&benchmarker, &pool).await?;
 
                 if let Some(stem) = query_path.file_stem() {
-                    let prefix = outer_path.join(stem);
-
-                    benchmark_result.write(&prefix)?;
+                    benchmark_result.write(
+                        &time_benchmark,
+                        &results_path,
+                        outer_path.file_stem().unwrap(),
+                        stem,
+                    )?;
                     benchmark_result.report();
                 }
             }
@@ -110,10 +132,11 @@ async fn main() -> Result<(), sqlx::Error> {
             // ----------------------------------------------------------------
             // Down runner
             // ----------------------------------------------------------------
-            let down_path = format!("{}/{}", outer_path_str, migration_names[1]);
+            let down_path = outer_path.join(&migration_names[1]);
 
             if let Ok(contents) = fs::read_to_string(&down_path) {
-                let mut migrator = SimpleMigrator::new(Cow::Owned(down_path), Cow::Owned(contents));
+                let mut migrator =
+                    SimpleMigrator::new(down_path.to_string_lossy(), Cow::Owned(contents));
 
                 migrator.run(&pool).await?;
                 migrator.report();
