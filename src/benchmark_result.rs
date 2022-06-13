@@ -53,8 +53,8 @@ impl BenchmarkResult {
 
         let mut result_file = File::create(&result_path)?;
 
+        writeln!(result_file, "Benchmark: {} ms\n", self.time)?;
         writeln!(result_file, "Query plan:\n{}", self.plan)?;
-        writeln!(result_file, "Benchmark: {} ms", self.time)?;
 
         result_file.flush()?;
 

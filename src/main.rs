@@ -69,6 +69,8 @@ async fn main() -> Result<()> {
         let outer_path = outer_entry?.path();
 
         if outer_path.is_dir() {
+            println!();
+
             // ----------------------------------------------------------------
             // Up runner
             // ----------------------------------------------------------------
@@ -145,7 +147,7 @@ async fn main() -> Result<()> {
     }
 
     // Revert temp migrations.
-    migrator.undo(&pool, 2).await?;
+    migrator.undo(&pool, 1).await?;
 
     Ok(())
 }
