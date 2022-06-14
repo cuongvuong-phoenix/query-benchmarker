@@ -26,18 +26,7 @@ impl Benchmarker {
             .map_err(Error::msg)
     }
 
-    pub async fn benchmark(
-        &self,
-        pool: &Pool<Postgres>,
-        loop_times: Option<i32>,
-    ) -> Result<Decimal> {
-        // Defaults.
-        let loop_times = if let Some(ext_loop_times) = loop_times {
-            ext_loop_times
-        } else {
-            1000
-        };
-
+    pub async fn benchmark(&self, pool: &Pool<Postgres>, loop_times: i32) -> Result<Decimal> {
         let query = format!("SELECT benchmark($${}$$, {})", self.query, loop_times);
         sqlx::query_as::<_, (Decimal,)>(&query)
             .fetch_one(pool)

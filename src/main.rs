@@ -118,7 +118,7 @@ async fn main() -> Result<()> {
                 let contents = fs::read_to_string(&query_path)?;
                 let benchmarker = Benchmarker::new(&contents);
                 let mut benchmark_result =
-                    BenchmarkResult::from_benchmarker(&benchmarker, &pool).await?;
+                    BenchmarkResult::from_benchmarker(&benchmarker, None, &pool).await?;
 
                 if let Some(stem) = query_path.file_stem() {
                     benchmark_result.write(

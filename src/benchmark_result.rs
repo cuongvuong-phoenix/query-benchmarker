@@ -10,6 +10,7 @@ use std::{
 use crate::benchmarker::Benchmarker;
 
 pub struct BenchmarkResult {
+    loop_times: i32,
     plan: String,
     time: Decimal,
     path: Option<PathBuf>,
@@ -18,12 +19,21 @@ pub struct BenchmarkResult {
 impl BenchmarkResult {
     pub async fn from_benchmarker(
         benchmarker: &Benchmarker,
+        loop_times: Option<i32>,
         pool: &Pool<Postgres>,
     ) -> Result<Self> {
+        // Defaults.
+        let loop_times = if let Some(ext_loop_times) = loop_times {
+            ext_loop_times
+        } else {
+            1000
+        };
+
         let plan = benchmarker.get_plan(pool).await?;
-        let time = benchmarker.benchmark(pool, None).await?;
+        let time = benchmarker.benchmark(pool, loop_times).await?;
 
         Ok(Self {
+            loop_times,
             plan,
             time,
             path: None,
@@ -53,7 +63,11 @@ impl BenchmarkResult {
 
         let mut result_file = File::create(&result_path)?;
 
-        writeln!(result_file, "Benchmark: {} ms\n", self.time)?;
+        writeln!(
+            result_file,
+            "Benchmark (ran {} times): {} ms\n",
+            self.loop_times, self.time
+        )?;
         writeln!(result_file, "Query plan:\n{}", self.plan)?;
 
         result_file.flush()?;
