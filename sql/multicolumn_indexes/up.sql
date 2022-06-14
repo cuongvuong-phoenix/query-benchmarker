@@ -1,1 +1,0 @@
-CREATE INDEX index_users_on_tenant_id_and_invitation_status ON users (tenant_id, invitation_status);
